@@ -702,7 +702,14 @@ sub get_proxy($$$$){
 
     sub wsrep_rejectqueries {
         my ( $self, $wsrep_rejectqueries ) = @_;
-        $self->{_wsrep_rejectqueries} = $wsrep_rejectqueries if defined($wsrep_rejectqueries);
+        if defined($wsrep_rejectqueries)
+        {
+          $self->{_wsrep_rejectqueries} = $wsrep_rejectqueries;
+        }
+        else
+        {
+          $self->{_wsrep_rejectqueries} = 'NONE';
+        }
         return $self->{_wsrep_rejectqueries};
     }
 

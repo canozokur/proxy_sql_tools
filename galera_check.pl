@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # This tool is "fat-packed": most of its dependent modules are embedded
-# in this file.  
+# in this file.
 
 package galera_check ;
 use Time::HiRes qw(gettimeofday);
@@ -53,16 +53,16 @@ sub get_proxy($$$$){
     $proxynode->user($user);
     $proxynode->password($pass);
     $proxynode->debug($debug);
-    
+
     return $proxynode;
-    
+
 }
 
  sub main{
     # ============================================================================
     #+++++ INITIALIZATION
     # ============================================================================
-    
+
     if($#ARGV < 3){
 	#given a ProxySQL scheduler
 	#limitation we will pass the whole set of params as one
@@ -74,7 +74,7 @@ sub get_proxy($$$$){
     $Param->{password}   = '';
     $Param->{host}       = '';
     $Param->{port}       = 3306;
-    $Param->{debug}      = 0; 
+    $Param->{debug}      = 0;
     $Param->{processlist} = 0;
     $Param->{OS} = $^O;
     $Param->{main_segment} = 0;
@@ -82,9 +82,9 @@ sub get_proxy($$$$){
     $Param->{retry_down} = 0;
     $Param->{print_execution} = 0;
     $Param->{development} = 0;
-    
+
     my $run_pid_dir = "/tmp" ;
-    
+
     #if (
 	GetOptions(
 	    'user|u:s'       => \$Param->{user},
@@ -100,9 +100,9 @@ sub get_proxy($$$$){
 	    'execution_time:i' => \$Param->{print_execution},
 	    'development:i' => \$Param->{development},
 	    'active_failover' => \$Param->{active_failover},
-	    
+
 	    'help|?'       => \$Param->{help}
-    
+
 	) or pod2usage(2);
 	pod2usage(-verbose => 2) if $Param->{help};
 
@@ -112,12 +112,12 @@ sub get_proxy($$$$){
     die print Utils->print_log(1,"Option --port not specified.\n") unless defined $Param->{port};
     #die "Option --log not specified. We need a place to log what is going on, don't we?\n" unless defined $Param->{log};
     print Utils->print_log(2,"Option --log not specified. We need a place to log what is going on, don't we?\n") unless defined $Param->{log};
-    
+
     if($Param->{debug}){
 	Utils::debugEnv();
     }
-    
-    $Param->{host} = URLDecode($host);    
+
+    $Param->{host} = URLDecode($host);
     my $dsn  = "DBI:mysql:host=$Param->{host};port=$Param->{port}";
     if(defined $Param->{user}){
 	    $user = "$Param->{user}";
@@ -128,7 +128,7 @@ sub get_proxy($$$$){
     my $hg =$Param->{hostgroups};
     $hg =~ s/[\:,\,]/_/g;
     my $base_path = "${run_pid_dir}/proxysql_galera_check_${hg}.pid";
-    
+
     #============================================================================
     # Execution
     #============================================================================
@@ -136,7 +136,7 @@ sub get_proxy($$$$){
 	open(FH, '>>', $Param->{log}."_".$hg.".log") or die Utils->print_log(1,"cannot open file");
 	select FH;
     }
-    
+
     if($Param->{development} < 1){
 	if(!-e $base_path){
 	    `echo "$$ : $hg" > $base_path`
@@ -144,78 +144,78 @@ sub get_proxy($$$$){
 	else{
 	    print Utils->print_log(1,"Another process is running using the same HostGroup and settings,\n Or orphan pid file. check in $base_path");
 	    exit 1;
-	}    
+	}
     }
-     
+
     # for test only purpose comment for prod
 
     my $xx =1;
     my $y =0;
     $xx=20000000 if($Param->{development} > 0);
- 	
+
      while($y < $xx){
 	++$y ;
-	
-    my $start = gettimeofday();    
+
+    my $start = gettimeofday();
     if($Param->{debug} >= 1){
 	print Utils->print_log(3,"START EXECUTION\n");
     }
-    
 
-    
+
+
     my $proxy_sql_node = get_proxy($dsn, $user, $pass ,$Param->{debug}) ;
     $proxy_sql_node->retry_up($Param->{retry_up});
     $proxy_sql_node->retry_down($Param->{retry_down});
     $proxy_sql_node->hostgroups($Param->{hostgroups}) ;
     $proxy_sql_node->require_failover(0) if defined $Param->{active_failover};
-    
+
     $proxy_sql_node->connect();
-    
+
     # create basic galera cluster object and fill info
     $proxy_sql_node->set_galera_cluster();
     my $galera_cluster = $proxy_sql_node->get_galera_cluster();
-    
+
     if( defined $galera_cluster){
 	$galera_cluster->main_segment($Param->{main_segment});
 	$galera_cluster->cluster_identifier($hg);
 	$galera_cluster->get_nodes();
     }
-    
+
     # Retrive the nodes state
     if(defined $galera_cluster->nodes){
 	$galera_cluster->process_nodes();
-	
+
     }
-    
+
     #Analyze nodes state from ProxySQL prospective;
     if(defined  $galera_cluster->nodes){
 	my %action_node = $proxy_sql_node->evaluate_nodes($galera_cluster);
-	
+
     }
-    
+
     if(defined $proxy_sql_node->action_nodes){
 	$proxy_sql_node->push_changes;
     }
-    
+
     my $end = gettimeofday();
-    print Utils->print_log(3,"END EXECUTION Total Time:".($end - $start) * 1000 ."\n\n") if $Param->{print_execution} >0; 
+    print Utils->print_log(3,"END EXECUTION Total Time:".($end - $start) * 1000 ."\n\n") if $Param->{print_execution} >0;
 
 
-    
+
     $proxy_sql_node->disconnect();
-	
-    #debug braket 	
+
+    #debug braket
      sleep 2 if($Param->{development} > 0);
     }
     if(defined $Param->{log}){
     close FH;  # in the end
     }
-    
+
     `rm -f $base_path`;
-    
+
     exit(0);
-    
-    
+
+
  }
 
 # ############################################################################
@@ -230,11 +230,11 @@ sub get_proxy($$$$){
     use strict;
     use warnings;
     use Time::HiRes qw(gettimeofday usleep);
-    
+
     sub new {
         my $class = shift;
         my $SQL_get_mysql_servers=" SELECT a.* FROM mysql_servers a join stats_mysql_connection_pool b on a.hostname=b.srv_host and a.port=b.srv_port and a.hostgroup_id=b.hostgroup  WHERE b.status not in ('OFFLINE_HARD','SHUNNED') ";
-        
+
         # Variable section for  looping values
         #Generalize object for now I have conceptualize as:
         # Cluster (generic container)
@@ -242,9 +242,9 @@ sub get_proxy($$$$){
         # Cluster->{nodes}       the nodes in the cluster Map by node name
         # Cluster->{status}     cluster status [Primary|not Primary]
         # Cluster->{size}     cluster status [Primary|not Primary]
-        # Cluster->{singlenode}=0;  0 if false 1 if true meaning only one ACTIVE node in the cluster 
+        # Cluster->{singlenode}=0;  0 if false 1 if true meaning only one ACTIVE node in the cluster
         # Cluster->{haswriter}=0;  0 if false 1 if true at least a node is fully active as writer
-        
+
         my $self = {
             _name      => undef,
             _hosts  => {},
@@ -261,12 +261,12 @@ sub get_proxy($$$$){
             _monitor_password => undef,
             _nodes => {},
             _check_timeout => 100, #timeout in ms
-	    _cluster_identifier => undef, 
+	    _cluster_identifier => undef,
             #_hg => undef,
         };
         bless $self, $class;
         return $self;
-        
+
     }
 
 
@@ -294,13 +294,13 @@ sub get_proxy($$$$){
         return $self->{_debug};
     }
 
-    
+
     sub dbh_proxy{
         my ( $self, $dbh_proxy ) = @_;
         $self->{_dbh_proxy} = $dbh_proxy if defined($dbh_proxy);
         return $self->{_dbh_proxy};
     }
-    
+
     sub name {
         my ( $self, $name ) = @_;
         $self->{_name} = $name if defined($name);
@@ -335,7 +335,7 @@ sub get_proxy($$$$){
         $self->{_haswriter} = $haswriter if defined($haswriter);
         return $self->{_haswriter};
     }
-    
+
     sub hostgroups {
         my ( $self, $hostgroups ) = @_;
         $self->{_hostgroups} = $hostgroups if defined($hostgroups);
@@ -355,7 +355,7 @@ sub get_proxy($$$$){
     # using the HG as reference
     sub get_nodes{
         my ( $self) = @_;
-        
+
         my $dbh = $self->{_dbh_proxy};
         my $cmd =$self->{_SQL_get_mysql_servers}." AND hostgroup_id IN (".join(",",sort keys($self->hostgroups)).") order by hostgroup_id, hostname";
         my $sth = $dbh->prepare($cmd);
@@ -374,7 +374,7 @@ sub get_proxy($$$$){
             $node->proxy_status($ref->{status});
 	    $node->comment($ref->{comment});
 	    $node->set_retry_up_down($self->{_cluster_identifier});
-	    
+
             $self->{_nodes}->{$i++}=$node;
 	    $node->debug($self->debug);
 	    if($self->debug){print Utils->print_log(3," Galera cluster node   " . $node->ip.":". $node->port.":HG=".$node->hostgroups."\n" ) }
@@ -382,7 +382,7 @@ sub get_proxy($$$$){
 	if($self->debug){print Utils->print_log(3," Galera cluster nodes loaded \n") ; }
     }
     #Processing the nodes in the cluster and identify which node is active and which is to remove
-    
+
     sub process_nodes{
         my ( $self ) = @_;
 
@@ -394,7 +394,7 @@ sub get_proxy($$$$){
         my %Threads;
         my $new_nodes ={} ;
 	my $processed_nodes ={} ;
-        
+
         #using multiple threads to connect if a node is present in more than one HG it will have 2 threads
         while($irun){
             $irun = 0;
@@ -414,7 +414,7 @@ sub get_proxy($$$$){
 #			#print  $self->{_size}->{$new_nodes->{$key}->{_wsrep_segment}}." segment " .$new_nodes->{$key}->{_wsrep_segment} ."\n"
 #		    }
 
-		    
+
                 }
             }
             #DEBUG SENZA THREADS coomenta da qui
@@ -422,15 +422,15 @@ sub get_proxy($$$$){
                 if ($Threads{$thr}->is_running()) {
                     my $tid = $Threads{$thr}->tid;
                     #print "  - Thread $tid running\n";
-                   
+
                     if($run_milliseconds >  $self->{_check_timeout} ){
-			if($self->debug >=0){print print Utils->print_log(2,"Check timeout :   " . $tid."\n")  }	
-                       $irun = 0 ; 
+			if($self->debug >=0){print print Utils->print_log(2,"Check timeout :   " . $tid."\n")  }
+                       $irun = 0 ;
                     }
 		    else{
 			$irun = 1;
 		    }
-                } 
+                }
                 elsif ($Threads{$thr}->is_joinable()) {
                     my $tid = $Threads{$thr}->tid;
                     ( $new_nodes->{$thr} ) = $Threads{$thr}->join;
@@ -450,7 +450,7 @@ sub get_proxy($$$$){
 		       && $new_nodes->{$thr}->{_proxy_status} eq "ONLINE"){
 			$self->{_haswriter} = 1 ;
 		    }
-		    if($self->debug){print print Utils->print_log(3," Thread joined :   " . $tid."\n" ) }	
+		    if($self->debug){print print Utils->print_log(3," Thread joined :   " . $tid."\n" ) }
                     #print "  - Results for thread $tid:\n";
                     #print "  - Thread $tid has been joined\n";
                 }
@@ -463,7 +463,7 @@ sub get_proxy($$$$){
         }
         $self->{_nodes} = $new_nodes;
 	if($self->debug){$run_milliseconds = (gettimeofday() -$start ) *1000};
-	
+
 	if($debug>=3){
 	    foreach my $key (sort keys $new_nodes){
 		if($new_nodes->{$key}->{_process_status} == 1){
@@ -473,23 +473,23 @@ sub get_proxy($$$$){
 		    print Utils->print_log(4,$new_nodes->{$key}->{_ip}.":".$new_nodes->{$key}->{_hostgroups}." NOT Processed\n");
 		}
 	    }
-            
+
 	}
-	if($self->debug){print Utils->print_log(3," Multi Thread execution done in :   " . $run_milliseconds. "(ms) \n"  )}	
-    
+	if($self->debug){print Utils->print_log(3," Multi Thread execution done in :   " . $run_milliseconds. "(ms) \n"  )}
+
     }
-    
+
     sub get_node_info($$){
         my $self = shift;
         my $key = shift;
         my $nodes =shift;
         my ( $node ) = $self->{_nodes}->{$key};
         $node->get_node_info();
-	
+
 	return $node;
-        
+
     }
-    
+
 }
 
 {
@@ -499,7 +499,7 @@ sub get_proxy($$$$){
         my $class = shift;
         my $SQL_get_variables="SHOW GLOBAL VARIABLES LIKE 'wsrep%";
         my $SQL_get_status="SHOW GLOBAL VARIABLES LIKE 'wsrep%";
-        my $SQL_get_read_only="SHOW GLOBAL VARIABLES LIKE 'read_only'";  
+        my $SQL_get_read_only="SHOW GLOBAL VARIABLES LIKE 'read_only'";
 
         # Variable section for  looping values
         #Generalize object for now I have conceptualize as:
@@ -511,11 +511,11 @@ sub get_proxy($$$$){
         # Node->{read_only} Read only node
         # Node->{wsrep_status}     node status (OPEN 0,Primary 1,Joiner 2,Joined 3,Synced 4,Donor 5)
         # Node->{wsrep_rejectqueries} (NON, ALL,ALL_KILL)
-        # Node->{wsrep_donorrejectqueries} If true the node when donor 
-        # Node->{wsrep_connected}=0;   if false 1 if true meaning only one ACTIVE node in the cluster 
+        # Node->{wsrep_donorrejectqueries} If true the node when donor
+        # Node->{wsrep_connected}=0;   if false 1 if true meaning only one ACTIVE node in the cluster
         # Node->{wsrep_desinccount}=0;  0 if false 1 if true at least a node is fully active as writer
-        # Node->{wsrep_ready}  ON -OFF 
-        
+        # Node->{wsrep_ready}  ON -OFF
+
         my $self = {
             _name      => undef,
             _ip  => undef,
@@ -524,7 +524,8 @@ sub get_proxy($$$$){
             _clustername    => undef,
             _read_only    => undef,
             _wsrep_status  => -1,
-            _wsrep_rejectqueries => undef,
+            _wsrep_rejectqueries => 'NONE', # MariaDB 10.1 does NOT have wsrep_reject_queries option, yet.
+                                            # so we init this variable as NONE, it is overriden if defined anyway.
             _wsrep_donorrejectqueries => undef,
             _wsrep_connected => undef,
             _wsrep_desinccount => undef,
@@ -544,22 +545,22 @@ sub get_proxy($$$$){
             _weight => 1,
             _cluster_status    => undef,
             _cluster_size  => 0,
-	    _process_status => -1, 
-	    _MOVE_UP_OFFLINE => 1000, #move a node from OFFLINE_SOFT 
-	    _MOVE_UP_HG_CHANGE => 1010, #move a node from HG 9000 (plus hg id) to reader HG 
+	    _process_status => -1,
+	    _MOVE_UP_OFFLINE => 1000, #move a node from OFFLINE_SOFT
+	    _MOVE_UP_HG_CHANGE => 1010, #move a node from HG 9000 (plus hg id) to reader HG
 	    _MOVE_DOWN_HG_CHANGE => 3001, #move a node from original HG to maintenance HG (HG 9000 (plus hg id) ) kill all existing connections
 	    _MOVE_DOWN_OFFLINE => 3010 , # move node to OFFLINE_soft keep existign connections, no new connections.
-	    _SAVE_RETRY => 9999, # this reset the retry counter in the comment 
+	    _SAVE_RETRY => 9999, # this reset the retry counter in the comment
 	    #_MOVE_SWAP_READER_TO_WRITER => 5001, #Future use
 	    #_MOVE_SWAP_WRITER_TO_READER => 5010, #Future use
     	    _retry_down_saved => 0, # number of retry on a node before declaring it as failed.
 	    _retry_up_saved => 0, # number of retry on a node before declaring it OK.
-	    _comment => undef, 
+	    _comment => undef,
 
         };
         bless $self, $class;
         return $self;
-        
+
     }
 
     sub comment{
@@ -567,7 +568,7 @@ sub get_proxy($$$$){
         $self->{_comment} = $in if defined($in);
         return $self->{_comment};
     }
-    
+
     sub retry_down_saved{
         my ( $self, $in ) = @_;
         $self->{_retry_down_saved} = $in if defined($in);
@@ -579,7 +580,7 @@ sub get_proxy($$$$){
         $self->{_retry_up_saved} = $in if defined($in);
         return $self->{_retry_up_saved};
     }
-    
+
     sub process_status {
         my ( $self, $process_status ) = @_;
         $self->{_process_status} = $process_status if defined($process_status);
@@ -606,7 +607,7 @@ sub get_proxy($$$$){
         my ( $self) = @_;
         return $self->{_MOVE_UP_HG_CHANGE};
     }
-    
+
     sub MOVE_DOWN_OFFLINE {
         my ( $self) = @_;
         return $self->{_MOVE_DOWN_OFFLINE};
@@ -628,25 +629,25 @@ sub get_proxy($$$$){
         $self->{_cluster_size} = $size if defined($size);
         return $size->{_cluster_size};
     }
-    
+
     sub weight {
         my ( $self, $weight ) = @_;
         $self->{_weight} = $weight if defined($weight);
         return $self->{_weight};
     }
-    
+
     sub proxy_status {
         my ( $self, $status ) = @_;
         $self->{_proxy_status} = $status if defined($status);
         return $self->{_proxy_status};
     }
-    
+
     sub dns {
         my ( $self, $dns ) = @_;
         $self->{_dns} = $dns if defined($dns);
         return $self->{_dns};
     }
-    
+
     sub user{
         my ( $self, $user ) = @_;
         $self->{_user} = $user if defined($user);
@@ -680,7 +681,7 @@ sub get_proxy($$$$){
         $self->{_hostgroups} = $hostgroups if defined($hostgroups);
         return $self->{_hostgroups};
     }
-    
+
     sub clustername {
         my ( $self, $clustername ) = @_;
         $self->{_clustername} = $clustername if defined($clustername);
@@ -758,20 +759,20 @@ sub get_proxy($$$$){
 
     sub get_node_info($$){
         my ( $self ) = @_;
-        
+
 	if($self->debug >=1){print Utils->print_log(4," Node check START "
 	    .$self->{_ip}
 	    .":".$self->{_port}
 	    .":HG".$self->{_hostgroups}
-	    ."\n"  );}	
-	
+	    ."\n"  );}
+
         my $dbh = Utils::get_connection($self->{_dns},$self->{_user},$self->{_password},' ');
 	if(!defined $dbh){
 	    return undef;
 	}
         my $variables = Utils::get_variables($dbh,0);
         my $status = Utils::get_status_by_name($dbh,0,"wsrep_%");
-        
+
         $self->{_name} = $variables->{wsrep_node_name};
         $self->{_clustername} = $variables->{wsrep_cluster_name};
         $self->{_read_only} = $variables->{read_only};
@@ -785,24 +786,24 @@ sub get_proxy($$$$){
         $self->{_wsrep_ready} = $status->{wsrep_ready};
         $self->{_cluster_status} = $status->{wsrep_cluster_status};
         $self->{_cluster_size} = $status->{wsrep_cluster_size};
-        
+
         $dbh->disconnect if (defined $dbh);
 	#sleep 5;
-	
+
         $self->{_process_status} = 1;
 	if($self->debug>=1){print Utils->print_log(4," Node check END "
 	    .$self->{_ip}
 	    .":".$self->{_port}
 	    .":HG".$self->{_hostgroups}
-	    ."\n"  );}	
+	    ."\n"  );}
 
 	return $self;
-        
+
     }
     sub set_retry_up_down(){
 	my ( $self, my $hg ) = @_;
 	if($self->debug >=1){print Utils->print_log(4,"Calculate retry from comment Node:".$self->ip." port:".$self->port . " hg:".$self->hostgroups ." Time IN \n");}
-	
+
 	my %comments = split /[;=]/, $self->{_comment};
 	if(exists $comments{$hg."_retry_up"}){
 	    $self->{_retry_up_saved} = $comments{$hg."_retry_up"};
@@ -820,7 +821,7 @@ sub get_proxy($$$$){
 	my $removeDown=$hg."_retry_down=".$self->{_retry_down_saved}.";";
 	$self->{_comment} =~ s/$removeDown//ig ;
 	$self->{_comment} =~ s/$removeUp//ig ;
-	
+
 	if($self->debug >=1){print Utils->print_log(4,"Calculate retry from comment Node:".$self->ip." port:".$self->port . " hg:".$self->hostgroups ." Time OUT \n");}
     }
     sub get_retry_up(){
@@ -834,16 +835,16 @@ sub get_proxy($$$$){
         $self->{_retry_down_saved} = $in if defined($in);
         return $self->{_retry_down_saved};
     }
-    
+
     sub remove_read_only(){
        my ( $self ) = @_;
-        
-	print Utils->print_log(3,"This Node Try to become a WRITER set READ_ONLY to 0 " 
+
+	print Utils->print_log(3,"This Node Try to become a WRITER set READ_ONLY to 0 "
 	    .$self->{_ip}
 	    .":".$self->{_port}
 	    .":HG".$self->{_hostgroups}
-	    ."\n"  );	
-	
+	    ."\n"  );
+
         my $dbh = Utils::get_connection($self->{_dns},$self->{_user},$self->{_password},' ');
 	if(!defined $dbh){
 	    return undef;
@@ -853,8 +854,8 @@ sub get_proxy($$$$){
 	    .$self->{_ip}
 	    .":".$self->{_port}
 	    .":HG".$self->{_hostgroups}
-	    ."\n"  );	
-	    
+	    ."\n"  );
+
 	}
 	else{
 	    die "Couldn't execute statement: " .  $dbh->errstr;
@@ -864,7 +865,7 @@ sub get_proxy($$$$){
 	return 1;
     }
 
-    
+
 }
 
 {
@@ -883,9 +884,9 @@ sub get_proxy($$$$){
         # Proxy->{PID} processes pid (angel and real)
         # Proxy->{hostgroups}
         # Proxy->{user} This is the user name
-        # Proxy->{password} 
+        # Proxy->{password}
         # Proxy->{port}     node status (OPEN 0,Primary 1,Joiner 2,Joined 3,Synced 4,Donor 5)
-        
+
         my $self = {
             _dns  => undef,
             _pid  => undef,
@@ -909,14 +910,14 @@ sub get_proxy($$$$){
         };
         bless $self, $class;
         return $self;
-        
+
     }
     sub require_failover{
         my ( $self, $in ) = @_;
         $self->{_require_failover} = $in if defined($in);
         return $self->{_require_failover};
     }
-    
+
     sub status_changed{
         my ( $self, $in ) = @_;
         $self->{_status_changed} = $in if defined($in);
@@ -935,7 +936,7 @@ sub get_proxy($$$$){
         return $self->{_retry_up};
     }
 
-    
+
     sub debug{
         my ( $self, $debug ) = @_;
         $self->{_debug} = $debug if defined($debug);
@@ -947,7 +948,7 @@ sub get_proxy($$$$){
         $self->{_action_nodes} = $action_nodes if defined($action_nodes);
         return $self->{_action_nodes};
     }
-    
+
     sub dns {
         my ( $self, $dns ) = @_;
         $self->{_dns} = $dns if defined($dns);
@@ -970,7 +971,7 @@ sub get_proxy($$$$){
         my ( $self, $hostgroups ) = @_;
 	if (defined $hostgroups){
 	    my @HGIds=split('\,', $Param->{hostgroups});
-	    
+
 	    foreach my $hg (@HGIds){
 		my $proxy_hg = ProxySqlHG->new();
 		my $proxy_hgM = ProxySqlHG->new();
@@ -984,11 +985,11 @@ sub get_proxy($$$$){
 		if($self->debug >=1){print Utils->print_log(3," Inizializing hostgroup " . $proxy_hg->id ." ".$proxy_hg->type . "with maintenance HG ". $proxy_hgM->id ." ".$proxy_hgM->type."\n") ; }
 	    }
 
-	    
+
 	}
         return $self->{_hostgroups};
     }
-    
+
     sub user{
         my ( $self, $user ) = @_;
         $self->{_user} = $user if defined($user);
@@ -999,7 +1000,7 @@ sub get_proxy($$$$){
         $self->{_password} = $password if defined($password);
         return $self->{_password};
     }
-    
+
         sub monitor_user{
         my ( $self, $monitor_user ) = @_;
         $self->{_monitor_user} = $monitor_user if defined($monitor_user);
@@ -1022,14 +1023,14 @@ sub get_proxy($$$$){
         $self->{_check_timeout} = $check_timeout if defined($check_timeout);
         return $self->{_check_timeout};
     }
-    
+
     #Connect method connect an populate the cluster returns the Galera cluster
     sub connect{
         my ( $self, $port ) = @_;
         my $dbh = Utils::get_connection($self->{_dns}, $self->{_user}, $self->{_password},' ');
         $self->{_dbh_proxy} = $dbh;
-        
-        # get monitor user/pw                
+
+        # get monitor user/pw
         my $cmd = $self->{_SQL_get_monitor};
 
 
@@ -1039,16 +1040,16 @@ sub get_proxy($$$$){
             if($ref->{'name'} eq 'mysql-monitor_password' ){$self->{_monitor_password} = $ref->{'value'};}
             if($ref->{'name'} eq 'mysql-monitor_username' ) {$self->{_monitor_user} = $ref->{'value'};}
             if($ref->{'name'} eq 'mysql-monitor_read_only_timeout' ) {$self->{_check_timeout} = $ref->{'value'};}
-            
+
         }
 	if($self->debug >=1){print Utils->print_log(3," Connecting to ProxySQL " . $self->{_dns}. "\n" ); }
-        
+
     }
     sub disconnect{
         my ( $self, $port ) = @_;
         $self->{_dbh_proxy}->disconnect;
-	
-        
+
+
     }
     sub get_galera_cluster{
         my ( $self, $in ) = @_;
@@ -1059,7 +1060,7 @@ sub get_proxy($$$$){
     sub set_galera_cluster(){
         my ( $self, $port ) = @_;
         my $galera_cluster = Galeracluster->new();
-        
+
 	$galera_cluster->hostgroups($self->hostgroups);
         $galera_cluster->dbh_proxy($self->dbh_proxy);
         $galera_cluster->check_timeout($self->check_timeout);
@@ -1069,7 +1070,7 @@ sub get_proxy($$$$){
 	$self->get_galera_cluster($galera_cluster);
 	if($self->debug >=1){print Utils->print_log(3," Galera cluster object created  " . caller(3). "\n" ); }
     }
-    
+
     sub evaluate_nodes{
 	my ($proxynode,$GGalera_cluster)  = @_ ;
 	my ( $nodes ) = $GGalera_cluster->{_nodes};
@@ -1090,19 +1091,19 @@ sub get_proxy($$$$){
 
 	#Rules:
 	    #see rules in the doc
-	    
+
 	#do the checks
-	if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state \n" ) }	
+	if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state \n" ) }
 	foreach my $key (sort keys %{$nodes}){
             if(defined $nodes->{$key} ){
-		
+
 		#only if node has HG that is not maintennce it vcan evaluate to be put down in some way
 		if($nodes->{$key}->{_hostgroups} < 9000
 		   && $nodes->{$key}->{_process_status} > 0){
 		    #Check major exclusions
 		    # 1) wsrep state
 		    # 2) Node is read only
-		    # 3) at least another node in the HG 
+		    # 3) at least another node in the HG
 
 		    if( $nodes->{$key}->wsrep_status == 2
 			&& $nodes->{$key}->read_only eq "ON"
@@ -1119,8 +1120,8 @@ sub get_proxy($$$$){
 
 			if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state "
 			    .$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_DOWN_OFFLINE}
-			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }	
-			
+			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }
+
 			next;
 		    }
 
@@ -1136,7 +1137,7 @@ sub get_proxy($$$$){
 
 			if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state "
 			    .$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_DOWN_HG_CHANGE}
-			    ." Retry #".$nodes->{$key}->get_retry_down."\n" )   }	
+			    ." Retry #".$nodes->{$key}->get_retry_down."\n" )   }
 
 			next;
 		    }
@@ -1152,9 +1153,9 @@ sub get_proxy($$$$){
 
 			if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state "
 			    .$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_DOWN_HG_CHANGE}
-			    ." Retry #".$nodes->{$key}->get_retry_down."\n" )   }	
+			    ." Retry #".$nodes->{$key}->get_retry_down."\n" )   }
 			next;
-		    }		
+		    }
 		    # 4) wsrep_reject_queries=NONE
 		    if($nodes->{$key}->wsrep_rejectqueries ne "NONE" && $nodes->{$key}->proxy_status ne "OFFLINE_SOFT"){
 			my $inc =0;
@@ -1172,7 +1173,7 @@ sub get_proxy($$$$){
 
 			if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state "
 			    .$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_DOWN_HG_CHANGE}
-			    ." Retry #".$nodes->{$key}->get_retry_down."\n" )   }	
+			    ." Retry #".$nodes->{$key}->get_retry_down."\n" )   }
 
 			next;
 		    }
@@ -1187,15 +1188,15 @@ sub get_proxy($$$$){
 
 			if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state "
 			    .$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_DOWN_HG_CHANGE}
-			    ." Retry #".$nodes->{$key}->get_retry_down."\n" )   }	
+			    ." Retry #".$nodes->{$key}->get_retry_down."\n" )   }
 
 			next;
 		    }
-		    #Set OFFLINE_SOFT a writer: 
+		    #Set OFFLINE_SOFT a writer:
 		    #1) donor node reject queries - 0
 		    #2)size of cluster > 2 of nodes in the same segments
-		    #3) more then one writer in the same HG 
-		    
+		    #3) more then one writer in the same HG
+
 		    if(
 		       $nodes->{$key}->wsrep_status eq 2
 		       && $nodes->{$key}->read_only eq "OFF"
@@ -1212,11 +1213,11 @@ sub get_proxy($$$$){
 
 			if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state "
 			    .$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_DOWN_OFFLINE}
-			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }	
+			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }
 
 			next;
 		    }
-		}    
+		}
 		#Node comes back from offline_soft when (all of them):
 		# 1) Node state is 4
 		# 3) wsrep_reject_queries = none
@@ -1235,10 +1236,10 @@ sub get_proxy($$$$){
 			}
 			if($proxynode->debug <=1){print Utils->print_log(3, " Evaluate nodes state "
 			    .$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_UP_OFFLINE}
-			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }			    
+			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }
 		    next;
 		}
-		
+
 		# Node comes back from maintenance HG when (all of them):
 		# 1) node state is 4
 		# 3) wsrep_reject_queries = none
@@ -1255,13 +1256,13 @@ sub get_proxy($$$$){
 			}
 			if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state "
 			    .$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_UP_HG_CHANGE}
-			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }			    
+			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }
 			next;
 		}
 
 		#Special case when a node goes down it goes through several state and the check disable it moving form original group
 		#This is to remove it to his original HG when is not reachable
-		   if($nodes->{$key}->{_process_status} < 0 
+		   if($nodes->{$key}->{_process_status} < 0
 		    && $nodes->{$key}->hostgroups >= 9000
 		   ){
 			#if retry is > 0 then it's managed
@@ -1272,10 +1273,10 @@ sub get_proxy($$$$){
 			$action_nodes->{$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_UP_HG_CHANGE}}= $nodes->{$key};
 			if($proxynode->debug >=1){print Utils->print_log(3," Evaluate nodes state "
 			    .$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_MOVE_UP_HG_CHANGE}
-			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }			    
+			    ." Retry #".$nodes->{$key}->get_retry_down."\n" ) }
 			next;
 		}
-		
+
 		# in the case node is not in one of the declared state
 		# BUT it has the counter retry set THEN I rest it to 0 whatever it was because
 		# I assume it is ok now
@@ -1290,22 +1291,22 @@ sub get_proxy($$$$){
 		    $nodes->{$key}->get_retry_down(0);
 		    $action_nodes->{$nodes->{$key}->ip.";".$nodes->{$key}->port.";".$nodes->{$key}->hostgroups.";".$nodes->{$key}->{_SAVE_RETRY}}= $nodes->{$key};
 		}
-		
+
 
 	    }
 	}
 	$proxynode->action_nodes($action_nodes);
     }
-    
+
     sub push_changes{
 	my ($proxynode)  = @_ ;
 	my $node = GaleraNode->new();
 	my $SQL_command="";
-	
-	
+
+
 	foreach my $key (sort keys %{$proxynode->{_action_nodes}}){
 	    my ($host,  $port, $hg, $action) = split /s*;\s*/, $key;
-    
+
 	    SWITCH: {
 		if ($action == $node->MOVE_DOWN_OFFLINE) { if($proxynode->{_action_nodes}->{$key}->get_retry_down >= $proxynode->retry_down){ $proxynode->move_node_offline($key,$proxynode->{_action_nodes}->{$key})}; last SWITCH; }
                 if ($action == $node->MOVE_DOWN_HG_CHANGE) { if($proxynode->{_action_nodes}->{$key}->get_retry_down >= $proxynode->retry_down){ $proxynode->move_node_down_hg_changey($key,$proxynode->{_action_nodes}->{$key})}; last SWITCH; }
@@ -1315,17 +1316,17 @@ sub get_proxy($$$$){
 	    if($proxynode->retry_up > 0 || $proxynode->retry_down > 0){
 		save_retry($proxynode,$key,$proxynode->{_action_nodes}->{$key});
 	    }
-	    
+
 	}
 	$proxynode->{_action_nodes} = undef;
     }
-    
+
     sub save_retry{
 	#this action will take place only if retry is active
 	my ($self,$key,$node) = @_;
 
 	my ($host,  $port, $hg,$action) = split /s*;\s*/, $key;
-	
+
 	if($self->debug >=1){print Utils->print_log(4,"Check retry Node:".$host." port:".$port . " hg:".$hg ." Time IN \n");}
 
 	my $sql_string = "UPDATE mysql_servers SET comment='"
@@ -1336,65 +1337,65 @@ sub get_proxy($$$$){
 
 	$self->{_dbh_proxy}->do($sql_string) or die "Couldn't execute statement: " .  $self->{_dbh_proxy}->errstr;
 	$self->{_dbh_proxy}->do("LOAD MYSQL SERVERS TO RUNTIME") or die "Couldn't execute statement: " .  $self->{_dbh_proxy}->errstr;
-	
+
 	if($self->debug >=1){print Utils->print_log(2," Reset retry to UP:".$node->get_retry_up." Down:".$node->get_retry_down."for node:" .$key
 			    ." SQL:" .$sql_string
-			    ."\n")}  ;			    
+			    ."\n")}  ;
 	if($self->debug >=1){print Utils->print_log(4,"Check retry Node:".$host." port:".$port . " hg:".$hg ." Time OUT \n");}
     }
-    
-    
+
+
 
     sub move_node_offline{
-	#this action involve only the proxy so we will 
+	#this action involve only the proxy so we will
 	my ($proxynode, $key,$node) = @_;
-	
+
 	my ($host,  $port, $hg,$action) = split /s*;\s*/, $key;
 	my $proxy_sql_command= " UPDATE mysql_servers SET status='OFFLINE_SOFT' WHERE hostgroup_id=$hg AND hostname='$host' AND port='$port'";
 	$proxynode->{_dbh_proxy}->do($proxy_sql_command) or die "Couldn't execute statement: " .  $proxynode->{_dbh_proxy}->errstr;
 	$proxynode->{_dbh_proxy}->do("LOAD MYSQL SERVERS TO RUNTIME") or die "Couldn't execute statement: " .  $proxynode->{_dbh_proxy}->errstr;
-	
+
 	print Utils->print_log(2," Move node:" .$key
 			    ." SQL:" .$proxy_sql_command
-			    ."\n")  ;			    
-	
+			    ."\n")  ;
+
     }
 
     #move a node to a maintenance HG ((9000 + HG id))
     sub move_node_down_hg_changey{
 	my ($proxynode, $key,$node) = @_;
-	
+
 	my ($host,  $port, $hg,$action) = split /s*;\s*/, $key;
 	if($hg > 9000) {return 1;}
-	
+
 	my $node_sql_command = "SET GLOBAL READ_ONLY=1;";
 	my $proxy_sql_command =" UPDATE mysql_servers SET hostgroup_id=".(9000 + $hg)." WHERE hostgroup_id=$hg AND hostname='$host' AND port='$port'";
 	$proxynode->{_dbh_proxy}->do($proxy_sql_command) or die "Couldn't execute statement: " .  $proxynode->{_dbh_proxy}->errstr;
 	$proxynode->{_dbh_proxy}->do("LOAD MYSQL SERVERS TO RUNTIME") or die "Couldn't execute statement: " .  $proxynode->{_dbh_proxy}->errstr;
 	print Utils->print_log(2," Move node:" .$key
 	    ." SQL:" .$proxy_sql_command
-	    ."\n" );			    
-	
-	
+	    ."\n" );
+
+
     }
 
     #Bring back a node that is just offline
     sub move_node_up_from_offline{
-	
+
 	my ($proxynode, $key,$node) = @_;
-	
+
 	my ($host,  $port, $hg,$action) = split /s*;\s*/, $key;
 	my $proxy_sql_command= " UPDATE mysql_servers SET status='ONLINE' WHERE hostgroup_id=$hg AND hostname='$host' AND port='$port'";
 	$proxynode->{_dbh_proxy}->do($proxy_sql_command) or die "Couldn't execute statement: " .  $proxynode->{_dbh_proxy}->errstr;
 	$proxynode->{_dbh_proxy}->do("LOAD MYSQL SERVERS TO RUNTIME") or die "Couldn't execute statement: " .  $proxynode->{_dbh_proxy}->errstr;
 	print Utils->print_log(2," Move node:" .$key
 	    ." SQL:" .$proxy_sql_command
-	    ."\n" );			    
+	    ."\n" );
     }
     #move a node back to his original HG ((HG id - 9000))
     sub move_node_up_from_hg_change{
 	my ($proxynode, $key,$node) = @_;
-	
+
 	my ($host,  $port, $hg,$action) = split /s*;\s*/, $key;
 	my $node_sql_command = "SET GLOBAL READ_ONLY=1;";
 	my $proxy_sql_command =" UPDATE mysql_servers SET hostgroup_id=".($hg - 9000)." WHERE hostgroup_id=$hg AND hostname='$host' AND port='$port'";
@@ -1402,17 +1403,17 @@ sub get_proxy($$$$){
 	$proxynode->{_dbh_proxy}->do("LOAD MYSQL SERVERS TO RUNTIME") or die "Couldn't execute statement: " .  $proxynode->{_dbh_proxy}->errstr;
 	print Utils->print_log(2," Move node:" .$key
 	    ." SQL:" .$proxy_sql_command
-	    ."\n" ) ;			    
+	    ."\n" ) ;
     }
-    
+
     sub initiate_failover{
 	my ($proxynode,$Galera_cluster)  = @_ ;
 	my ( $nodes ) = $Galera_cluster->{_nodes};
 	my $failover_node;
-	
+
 	foreach my $key (sort keys %{$nodes}){
             if(defined $nodes->{$key} ){
-		
+
 		#only if node has HG that is not maintennce it vcan evaluate to be put down in some way
 		#Look for the node with the lowest weight in the same segment
 		if($nodes->{$key}->{_hostgroups} < 9000
@@ -1423,7 +1424,7 @@ sub get_proxy($$$$){
 		    if($nodes->{$key}->{_weight} < $failover_node->{_weight}){
 			$failover_node = $nodes->{$key};
 		    }
-		    
+
 		}
 	    }
 	}
@@ -1432,7 +1433,7 @@ sub get_proxy($$$$){
 	    return $failover_node->remove_read_only();
 	}
 
-	
+
 	return 0;
     }
 
@@ -1442,16 +1443,16 @@ sub get_proxy($$$$){
     package ProxySqlHG;
     sub new {
         my $class = shift;
-        
+
         my $self = {
-            _id  => undef, # 
+            _id  => undef, #
             _type  => undef, # available types: w writer; r reader ; mw maintance writer; mr maintenance reader
 	    _size => 0,
         };
         bless $self, $class;
         return $self;
     }
-    
+
     sub id {
         my ( $self, $id ) = @_;
         $self->{_id} = $id if defined($id);
@@ -1479,37 +1480,37 @@ sub get_proxy($$$$){
     ## $dsn  -- a perl DSN, e.g. "DBI:mysql:host=ltsdbwm1;port=3311"
     ## $user -- a valid username, e.g. "check"
     ## $pass -- a matching password, e.g. "g33k!"
-    
+
     sub get_connection($$$$) {
       my $dsn  = shift;
       my $user = shift;
       my $pass = shift;
       my $SPACER = shift;
       my $dbh = DBI->connect($dsn, $user, $pass);
-    
+
       if (!defined($dbh)) {
         print Utils->get_current_time ."[ERROR] Cannot connect to $dsn as $user\n";
 #        die();
 	return undef;
       }
-      
+
       return $dbh;
     }
-    
-    
+
+
     ######################################################################
     ## collection functions -- fetch status data from db
     ## get_status -- return a hash ref to SHOW GLOBAL STATUS output
     ## $dbh -- a non-null database handle, as returned from get_connection()
     ##
-    
-    
+
+
     sub get_status($$) {
       my $dbh = shift;
       my $debug = shift;
       my %v;
       my $cmd = "show /*!50000 global */ status";
-    
+
       my $sth = $dbh->prepare($cmd);
       $sth->execute();
       while (my $ref = $sth->fetchrow_hashref()) {
@@ -1517,7 +1518,7 @@ sub get_proxy($$$$){
         $v{"\L$n\E"} = $ref->{'Value'};
         if ($debug>0){print "MySQL status = ".$n."\n";}
       }
-    
+
       return \%v;
     }
     ######################################################################
@@ -1525,14 +1526,14 @@ sub get_proxy($$$$){
     ## get_status -- return a hash ref to SHOW GLOBAL STATUS output
     ## $dbh -- a non-null database handle, as returned from get_connection()
     ##
-    
+
     sub get_status_by_name($$) {
       my $dbh = shift;
       my $debug = shift;
-      my $name  = shift ; 
+      my $name  = shift ;
       my %v;
       my $cmd = "show /*!50000 global */ status like '$name'";
-    
+
       my $sth = $dbh->prepare($cmd);
       $sth->execute();
       while (my $ref = $sth->fetchrow_hashref()) {
@@ -1540,7 +1541,7 @@ sub get_proxy($$$$){
         $v{"\L$n\E"} = $ref->{'Value'};
         if ($debug>0){print "MySQL status = ".$n."\n";}
       }
-    
+
       return \%v;
     }
     ##
@@ -1553,15 +1554,15 @@ sub get_proxy($$$$){
       my $debug = shift;
       my %v;
       my $cmd = "show variables";
-    
+
       my $sth = $dbh->prepare($cmd);
       $sth->execute();
       while (my $ref = $sth->fetchrow_hashref()) {
         my $n = $ref->{'Variable_name'};
         $v{"\L$n\E"} = $ref->{'Value'};
       }
-      
-     
+
+
       return \%v;
     }
     ##
@@ -1575,46 +1576,46 @@ sub get_proxy($$$$){
       #my $debug = shift;
       my %v;
       my $cmd = "show variables like '$variableName'";
-    
+
       my $sth = $dbh->prepare($cmd);
       $sth->execute();
       while (my $ref = $sth->fetchrow_hashref()) {
         my $n = $ref->{'Variable_name'};
         $v{"\L$n\E"} = $ref->{'Value'};
       }
-      
-     
+
+
       return \%v;
     }
-    
+
     #Prrint time from invocation with milliseconds
     sub get_current_time{
 	use POSIX qw(strftime);
 	my $t = gettimeofday();
 	my $date = strftime "%Y/%m/%d %H:%M:%S", localtime $t;
 	$date .= sprintf ".%03d", ($t-int($t))*1000; # without rounding
-	
+
 	return $date;
     }
 
-    #prit all environmnt variables    
+    #prit all environmnt variables
     sub debugEnv{
         my $key = keys %ENV;
         foreach $key (sort(keys %ENV)) {
-    
+
            print $key, '=', $ENV{$key}, "\n";
-    
+
         }
-    
+
     }
-    
-    
+
+
     #Print a log entry
     sub print_log($$){
 	my $log_level = $_[1];
 	my $text = $_[2];
 	my $log_text = "[ - ] ";
-	
+
 	    SWITCH: {
 		if ($log_level == 1) { $log_text= "[ERROR] "; last SWITCH; }
                 if ($log_level == 2) { $log_text= "[WARN] "; last SWITCH; }
@@ -1622,10 +1623,10 @@ sub get_proxy($$$$){
 		if ($log_level == 4) { $log_text= "[DEBUG] "; last SWITCH; }
             }
 	return Utils::get_current_time.":".$log_text.$text;
-	
+
     }
-    
-    
+
+
     #trim a string
     sub  trim {
         my $s = shift;
@@ -1661,58 +1662,58 @@ sample [options] [file ...]
    --log	      Full path to the log file ie (/var/log/proxysql/galera_check_) the check will add
 		      the identifier for the specific HG.
    --active_failover  in case galera is set to use replication hg and in case of single wrter this EXPEIMENTAL feature will try to perform automatic failover activating the
-		      the node in the READER HG that has the lowest weight. It require (for the moment given it is experimental) monitor user (that connects to MySQL nodes), to have SUPER privileges 
+		      the node in the READER HG that has the lowest weight. It require (for the moment given it is experimental) monitor user (that connects to MySQL nodes), to have SUPER privileges
    -help              help message
-   
+
 =head1 DESCRIPTION
 
 Galera check is a script to manage integration between ProxySQL and Galera (from Codership).
 Galera and its implementations like Percona Cluster (PCX), use the data-centric concept, as such the status of a node is relvant in relation to a cluster.
 
 In ProxySQL is possible to represent a cluster and its segments using HostGroups.
-Galera check is design to manage a X number of nodes that belong to a given Hostgroup (HG). 
+Galera check is design to manage a X number of nodes that belong to a given Hostgroup (HG).
 In Galera_check it is also important to qualify the HG in case of use of Replication HG.
 
-galera_check works by HG and as such it will perform isolated actions/checks by HG. 
+galera_check works by HG and as such it will perform isolated actions/checks by HG.
 It is not possible to have more than one check running on the same HG. The check will create a lock file {proxysql_galera_check_${hg}.pid} that will be used by the check to prevent duplicates.
 
-Galera_check will connect to the ProxySQL node and retrieve all the information regarding the Nodes/proxysql configuration. 
+Galera_check will connect to the ProxySQL node and retrieve all the information regarding the Nodes/proxysql configuration.
 It will then check in parallel each node and will retrieve the status and configuration.
 
 At the moment galera_check analyze and manage the following:
 
-Node states: 
-  read_only 
-  wsrep_status 
-  wsrep_rejectqueries 
-  wsrep_donorrejectqueries 
-  wsrep_connected 
-  wsrep_desinccount 
-  wsrep_ready 
-  wsrep_provider 
-  wsrep_segment 
+Node states:
+  read_only
+  wsrep_status
+  wsrep_rejectqueries
+  wsrep_donorrejectqueries
+  wsrep_connected
+  wsrep_desinccount
+  wsrep_ready
+  wsrep_provider
+  wsrep_segment
   Number of nodes in by segment
   Retry loop
-  
+
 - Number of nodes in by segment
-If a node is the only one in a segment, the check will behave accordingly. 
-IE if a node is the only one in the MAIN segment, it will not put the node in OFFLINE_SOFT when the node become donor to prevent the cluster to become unavailable for the applications. 
+If a node is the only one in a segment, the check will behave accordingly.
+IE if a node is the only one in the MAIN segment, it will not put the node in OFFLINE_SOFT when the node become donor to prevent the cluster to become unavailable for the applications.
 As mention is possible to declare a segment as MAIN, quite useful when managing prod and DR site.
 
--The check can be configure to perform retry in a X interval. 
-Where X is the time define in the ProxySQL scheduler. 
+-The check can be configure to perform retry in a X interval.
+Where X is the time define in the ProxySQL scheduler.
 As such if the check is set to have 2 retry for UP and 4 for down, it will loop that number before doing anything. Given that Galera does some action behind the hood.
 This feature is very useful in some not well known cases where Galera bhave weird.
-IE whenever a node is set to READ_ONLY=1, galera desync and resync the node. 
+IE whenever a node is set to READ_ONLY=1, galera desync and resync the node.
 A check not taking this into account will cause a node to be set OFFLINE and back for no reason.
 
-Another important differentiation for this check is that it use special HGs for maintenance, all in range of 9000. 
-So if a node belong to HG 10 and the check needs to put it in maintenance mode, the node will be moved to HG 9010. 
+Another important differentiation for this check is that it use special HGs for maintenance, all in range of 9000.
+So if a node belong to HG 10 and the check needs to put it in maintenance mode, the node will be moved to HG 9010.
 Once all is normal again, the Node will be put back on his original HG.
 
-This check does NOT modify any state of the Nodes. 
-Meaning It will NOT modify any variables or settings in the original node. It will ONLY change states in ProxySQL. 
-    
+This check does NOT modify any state of the Nodes.
+Meaning It will NOT modify any variables or settings in the original node. It will ONLY change states in ProxySQL.
+
 The check is still a prototype and is not suppose to go to production (yet).
 
 
@@ -1729,8 +1730,8 @@ Note that galera_check is also Segment aware, as such the checks on the presence
 
 INSERT  INTO scheduler (id,interval_ms,filename,arg1) values (10,2000,"/var/lib/proxysql/galera_check.pl","-u=admin -p=admin -h=192.168.1.50 -H=500:W,501:R -P=3310 --retry_down=2 --retry_up=1 --main_segment=1 --debug=0  --log=/var/lib/proxysql/galeraLog");
 LOAD SCHEDULER TO RUNTIME;SAVE SCHEDULER TO DISK;
-  
-update scheduler set arg1="-u=admin -p=admin -h=192.168.1.50 -H=500:W,501:R -P=3310 --main_segment=1 --debug=1  --log=/var/lib/proxysql/galeraLog" where id =10;  
+
+update scheduler set arg1="-u=admin -p=admin -h=192.168.1.50 -H=500:W,501:R -P=3310 --main_segment=1 --debug=1  --log=/var/lib/proxysql/galeraLog" where id =10;
 LOAD SCHEDULER TO RUNTIME;SAVE SCHEDULER TO DISK;
 
 
@@ -1748,17 +1749,17 @@ Rules:
 =item 1
 
 Set to offline_soft :
-    
+
     any non 4 or 2 state, read only =ON
     donor node reject queries - 0 size of cluster > 2 of nodes in the same segments more then one writer, node is NOT read_only
 
 =item 2
 
 change HG t maintenance HG:
-    
+
     Node/cluster in non primary
     wsrep_reject_queries different from NONE
-    Donor, node reject queries =1 size of cluster 
+    Donor, node reject queries =1 size of cluster
 
 =item 3
 
@@ -1776,5 +1777,4 @@ Node comes back from offline_soft when (all of them):
      3) wsrep_reject_queries = none
      4) Primary state
 
-=cut	
-
+=cut

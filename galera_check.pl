@@ -1157,6 +1157,8 @@ sub get_proxy($$$$){
 			next;
 		    }
 		    # 4) wsrep_reject_queries=NONE
+        print Utils->print_log(3, " wsrep_rejectqueries state "
+              . $nodes->{$key}->wsrep_rejectqueries . "\n");
 		    if($nodes->{$key}->wsrep_rejectqueries ne "NONE" && $nodes->{$key}->proxy_status ne "OFFLINE_SOFT"){
 			my $inc =0;
 			if($nodes->{$key}->wsrep_rejectqueries eq "ALL"){

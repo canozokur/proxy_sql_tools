@@ -524,8 +524,7 @@ sub get_proxy($$$$){
             _clustername    => undef,
             _read_only    => undef,
             _wsrep_status  => -1,
-            _wsrep_rejectqueries => 'NONE', # MariaDB 10.1 does NOT have wsrep_reject_queries option, yet.
-                                            # so we init this variable as NONE, it is overriden if defined anyway.
+            _wsrep_rejectqueries => undef,
             _wsrep_donorrejectqueries => undef,
             _wsrep_connected => undef,
             _wsrep_desinccount => undef,
@@ -1164,8 +1163,6 @@ sub get_proxy($$$$){
 			next;
 		    }
 		    # 4) wsrep_reject_queries=NONE
-        print Utils->print_log(3, " wsrep_rejectqueries state "
-              . $nodes->{$key}->wsrep_rejectqueries . "\n");
 		    if($nodes->{$key}->wsrep_rejectqueries ne "NONE" && $nodes->{$key}->proxy_status ne "OFFLINE_SOFT"){
 			my $inc =0;
 			if($nodes->{$key}->wsrep_rejectqueries eq "ALL"){
